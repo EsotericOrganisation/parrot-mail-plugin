@@ -18,6 +18,12 @@ import org.jetbrains.annotations.NotNull;
 public class ParrotRightClickListener implements Listener {
     @EventHandler
     public void onParrotRightClick(@NotNull PlayerInteractEntityEvent event) {
+        Player player = event.getPlayer();
+
+        if (!player.isSneaking()) {
+            return;
+        }
+
         Entity entity = event.getRightClicked();
 
         if (entity instanceof Parrot parrot) {
