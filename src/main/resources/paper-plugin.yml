@@ -1,0 +1,4 @@
+name: ParrotMail
+version: '${version}'
+main: net.slqmy.parrot_mail.ParrotMailPlugin
+api-version: '1.20'
