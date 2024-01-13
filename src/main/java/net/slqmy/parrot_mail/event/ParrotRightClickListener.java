@@ -42,7 +42,13 @@ public class ParrotRightClickListener implements Listener {
 
                 Location parrotLocation = parrot.getLocation();
 
-                parrotLocation.getWorld().dropItemNaturally(parrotLocation, possibleBundle);
+                if (heldItem.isEmpty()) {
+                    playerInventory.setItemInMainHand(possibleBundle); // Gives the bundle directly to the player.
+                } else {
+                    world.dropItem(parrotLocation, possibleBundle); // Drops the parrot's bundle.
+                }
+
+                event.setCancelled(true);
                 return;
             }
 
