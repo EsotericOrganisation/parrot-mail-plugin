@@ -1,21 +1,36 @@
 package net.slqmy.parrot_mail.event;
 
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.Parrot;
-import org.bukkit.entity.Player;
+import io.papermc.paper.math.Rotations;
+import net.slqmy.parrot_mail.ParrotMailPlugin;
+import org.bukkit.*;
+import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityInteractEvent;
+import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
-import org.bukkit.inventory.EntityEquipment;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.*;
+import org.bukkit.inventory.meta.BundleMeta;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.util.Transformation;
+import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
+import org.joml.AxisAngle4f;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
+import org.slf4j.Logger;
+
+import java.util.UUID;
 
 public class ParrotRightClickListener implements Listener {
+
+    private final ParrotMailPlugin plugin;
+
+    public ParrotRightClickListener(ParrotMailPlugin plugin) {
+        this.plugin = plugin;
+    }
+
     @EventHandler
     public void onParrotRightClick(@NotNull PlayerInteractEntityEvent event) {
         Player player = event.getPlayer();
@@ -31,13 +46,18 @@ public class ParrotRightClickListener implements Listener {
                 return;
             }
 
-            Player player = event.getPlayer();
 
             EntityEquipment parrotEquipment = parrot.getEquipment();
 
             ItemStack possibleBundle = parrotEquipment.getItemInMainHand();
 
-            if (!possibleBundle.isEmpty()) {
+            World world = parrot.getWorld();
+
+            PlayerInventory playerInventory = player.getInventory();
+            ItemStack heldItem = playerInventory.getItemInMainHand();
+
+            // ItemStack.isEmpty() checks if an item exists or not.
+            if (possibleBundle.getType() == Material.BUNDLE) { // If the parrot has a bundle.
                 parrotEquipment.setItemInMainHand(null);
 
                 Location parrotLocation = parrot.getLocation();
@@ -52,8 +72,6 @@ public class ParrotRightClickListener implements Listener {
                 return;
             }
 
-            PlayerInventory playerInventory = player.getInventory();
-            ItemStack heldItem = playerInventory.getItemInMainHand();
 
             if (heldItem.getType() != Material.BUNDLE) {
                 return;
@@ -61,6 +79,40 @@ public class ParrotRightClickListener implements Listener {
 
             playerInventory.setItemInMainHand(null);
             parrotEquipment.setItemInMainHand(heldItem);
+
+            event.setCancelled(true);
+
+            parrotEquipment.setDropChance(EquipmentSlot.HAND, 1.0F);
+
+            // Spawn armour stand
+
+            Vector facingDirection = parrot.getLocation().getDirection();
+
+            Vector facingDirectionDown = facingDirection.clone();
+            Vector facingDirectionSide = facingDirectionDown.clone();
+
+            facingDirectionDown.rotateAroundZ(Math.PI / 2);
+            facingDirectionSide.rotateAroundY(Math.PI / 2);
+
+            Location armorStandLocation = parrot.getLocation().add(facingDirection.multiply(0.6)).add(facingDirectionDown.multiply(0.87)).add(facingDirectionSide.multiply(-0.01));
+
+            ArmorStand armorStand = (ArmorStand) world.spawnEntity(armorStandLocation, EntityType.ARMOR_STAND);
+
+            armorStand.setSmall(true);
+            armorStand.setInvulnerable(true);
+            armorStand.setVisible(false);
+            armorStand.setHeadRotations(Rotations.ofDegrees(-10, 0, -3));
+
+            ItemStack bundle = new ItemStack(Material.BUNDLE);
+            BundleMeta meta = (BundleMeta) bundle.getItemMeta();
+
+            meta.addItem(new ItemStack(Material.DIRT));
+
+            bundle.setItemMeta(meta);
+
+            armorStand.getEquipment().setHelmet(bundle);
+
+            Bukkit.getScheduler().runTaskTimer(plugin, () -> MailParrotUtils.updateBundlePosition(parrot, armorStand), 0, 1);
         }
     }
 }
