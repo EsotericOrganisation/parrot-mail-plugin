@@ -10,6 +10,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.BundleMeta;
+import org.bukkit.util.Transformation;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
 
@@ -74,35 +75,28 @@ public class ParrotRightClickListener implements Listener {
 
             parrotEquipment.setDropChance(EquipmentSlot.HAND, 1.0F);
 
-            // Spawn armour stand
-
-            Vector facingDirection = parrot.getLocation().getDirection();
-
-            Vector facingDirectionDown = facingDirection.clone();
-            Vector facingDirectionSide = facingDirectionDown.clone();
-
-            facingDirectionDown.rotateAroundZ(Math.PI / 2);
-            facingDirectionSide.rotateAroundY(Math.PI / 2);
-
-            Location armorStandLocation = parrot.getLocation().add(facingDirection.multiply(0.6)).add(facingDirectionDown.multiply(0.87)).add(facingDirectionSide.multiply(-0.01));
-
-            ArmorStand armorStand = (ArmorStand) world.spawnEntity(armorStandLocation, EntityType.ARMOR_STAND);
-
-            armorStand.setSmall(true);
-            armorStand.setInvulnerable(true);
-            armorStand.setVisible(false);
-            armorStand.setHeadRotations(Rotations.ofDegrees(-10, 0, -3));
+            ItemDisplay itemDisplay = (ItemDisplay) world.spawnEntity(parrot.getLocation().add(0, 1, 0), EntityType.ITEM_DISPLAY);
 
             ItemStack bundle = new ItemStack(Material.BUNDLE);
-            BundleMeta meta = (BundleMeta) bundle.getItemMeta();
 
+            BundleMeta meta = (BundleMeta) bundle.getItemMeta();
             meta.addItem(new ItemStack(Material.DIRT));
 
             bundle.setItemMeta(meta);
 
-            armorStand.getEquipment().setHelmet(bundle);
+            itemDisplay.setItemStack(bundle);
 
-            Bukkit.getScheduler().runTaskTimer(plugin, () -> MailParrotUtils.updateBundlePosition(parrot, armorStand), 0, 1);
+            itemDisplay.setInterpolationDelay(1);
+            itemDisplay.setInterpolationDuration(1);
+
+            itemDisplay.setBillboard(Display.Billboard.FIXED);
+
+            Transformation transformation = itemDisplay.getTransformation();
+            transformation.getScale().set(0.5D, 0.5D, 0.5D);
+
+            Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+                MailParrotUtils.updateBundlePosition(parrot, itemDisplay);
+            }, 0, 1);
         }
     }
 }
