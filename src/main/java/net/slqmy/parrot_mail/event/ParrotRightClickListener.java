@@ -1,27 +1,17 @@
 package net.slqmy.parrot_mail.event;
 
 import io.papermc.paper.math.Rotations;
+import net.slqmy.parrot_mail.MailParrotUtils;
 import net.slqmy.parrot_mail.ParrotMailPlugin;
 import org.bukkit.*;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityInteractEvent;
-import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.BundleMeta;
-import org.bukkit.persistence.PersistentDataContainer;
-import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.util.Transformation;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
-import org.joml.AxisAngle4f;
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
-import org.slf4j.Logger;
-
-import java.util.UUID;
 
 public class ParrotRightClickListener implements Listener {
 
