@@ -75,7 +75,12 @@ public class ParrotRightClickListener implements Listener {
 
             parrotEquipment.setDropChance(EquipmentSlot.HAND, 1.0F);
 
-            ItemDisplay itemDisplay = (ItemDisplay) world.spawnEntity(parrot.getLocation().add(0, 1, 0), EntityType.ITEM_DISPLAY);
+            Location spawnLocation = parrot.getLocation();
+            spawnLocation.setDirection(new Vector());
+            spawnLocation.setYaw(0);
+            spawnLocation.setPitch(0);
+
+            ItemDisplay itemDisplay = (ItemDisplay) world.spawnEntity(spawnLocation, EntityType.ITEM_DISPLAY);
 
             ItemStack bundle = new ItemStack(Material.BUNDLE);
 
@@ -86,17 +91,16 @@ public class ParrotRightClickListener implements Listener {
 
             itemDisplay.setItemStack(bundle);
 
-            itemDisplay.setInterpolationDelay(1);
-            itemDisplay.setInterpolationDuration(1);
+            itemDisplay.setInterpolationDelay(0);
+            itemDisplay.setInterpolationDuration(0);
 
             itemDisplay.setBillboard(Display.Billboard.FIXED);
 
             Transformation transformation = itemDisplay.getTransformation();
             transformation.getScale().set(0.5D, 0.5D, 0.5D);
+            itemDisplay.setTransformation(transformation);
 
-            Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-                MailParrotUtils.updateBundlePosition(parrot, itemDisplay);
-            }, 0, 1);
+            Bukkit.getScheduler().runTaskTimer(plugin, () -> MailParrotUtils.updateBundlePosition(parrot, itemDisplay), 0, 1);
         }
     }
 }
