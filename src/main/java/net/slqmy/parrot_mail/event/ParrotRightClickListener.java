@@ -3,6 +3,7 @@ package net.slqmy.parrot_mail.event;
 import io.papermc.paper.math.Rotations;
 import net.slqmy.parrot_mail.MailParrotUtils;
 import net.slqmy.parrot_mail.ParrotMailPlugin;
+import net.slqmy.parrot_mail.runnables.BundlePositionUpdater;
 import org.bukkit.*;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
@@ -70,11 +71,11 @@ public class ParrotRightClickListener implements Listener {
 
             playerInventory.setItemInMainHand(null);
             parrotEquipment.setItemInMainHand(heldItem);
+            parrotEquipment.setDropChance(EquipmentSlot.HAND, 1.0F);
 
             event.setCancelled(true);
 
-            parrotEquipment.setDropChance(EquipmentSlot.HAND, 1.0F);
-
+            //Spawn item display
             Location spawnLocation = parrot.getLocation();
             spawnLocation.setDirection(new Vector());
             spawnLocation.setYaw(0);
@@ -92,7 +93,7 @@ public class ParrotRightClickListener implements Listener {
             itemDisplay.setItemStack(bundle);
 
             itemDisplay.setInterpolationDelay(0);
-            itemDisplay.setInterpolationDuration(0);
+            itemDisplay.setInterpolationDuration(1);
 
             itemDisplay.setBillboard(Display.Billboard.FIXED);
 
@@ -100,7 +101,7 @@ public class ParrotRightClickListener implements Listener {
             transformation.getScale().set(0.5D, 0.5D, 0.5D);
             itemDisplay.setTransformation(transformation);
 
-            Bukkit.getScheduler().runTaskTimer(plugin, () -> MailParrotUtils.updateBundlePosition(parrot, itemDisplay), 0, 1);
+            new BundlePositionUpdater(parrot, itemDisplay).runTaskTimer(plugin, 0, 1);
         }
     }
 }
