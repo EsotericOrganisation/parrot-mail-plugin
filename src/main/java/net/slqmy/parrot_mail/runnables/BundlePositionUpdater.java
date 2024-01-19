@@ -12,19 +12,24 @@ public class BundlePositionUpdater extends BukkitRunnable {
     private final ItemDisplay bundle;
     private Location lastParrotLocation;
     private int ticksSinceLastTP;
+
     public BundlePositionUpdater(@NotNull Parrot parrot, @NotNull ItemDisplay bundle) {
         this.parrot = parrot;
         this.bundle = bundle;
-        this.lastParrotLocation = parrot.getLocation();
-        this.ticksSinceLastTP = 0;
+
+        lastParrotLocation = parrot.getLocation();
+        ticksSinceLastTP = 0;
     }
     @Override
     public void run() {
         boolean shouldTP = ticksSinceLastTP >= 100;
 
-        if (shouldTP) this.ticksSinceLastTP = 0;
-        else this.ticksSinceLastTP++;
+        if (shouldTP) {
+            ticksSinceLastTP = 0;
+        } else {
+            ticksSinceLastTP++;
+        }
 
-        this.lastParrotLocation = MailParrotUtils.updateBundlePosition(this.parrot, this.bundle, this.lastParrotLocation, shouldTP);
+        lastParrotLocation = MailParrotUtils.updateBundlePosition(parrot, bundle, lastParrotLocation, shouldTP);
     }
 }
