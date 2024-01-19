@@ -7,13 +7,13 @@ import org.bukkit.entity.Parrot;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.jetbrains.annotations.NotNull;
 
-public class BundlePositionUpdater extends BukkitRunnable {
+public class MailParrotUpdater extends BukkitRunnable {
     private final Parrot parrot;
     private final ItemDisplay bundle;
     private Location lastParrotLocation;
     private int ticksSinceLastTP;
 
-    public BundlePositionUpdater(@NotNull Parrot parrot, @NotNull ItemDisplay bundle) {
+    public MailParrotUpdater(@NotNull Parrot parrot, @NotNull ItemDisplay bundle) {
         this.parrot = parrot;
         this.bundle = bundle;
 
