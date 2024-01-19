@@ -1,5 +1,7 @@
 package net.slqmy.parrot_mail.event;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.slqmy.parrot_mail.MailParrotUtils;
 import net.slqmy.parrot_mail.ParrotMailPlugin;
 import net.slqmy.parrot_mail.runnables.MailParrotUpdater;
@@ -10,6 +12,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.BundleMeta;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.util.Transformation;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
@@ -43,14 +46,22 @@ public class ParrotRightClickListener implements Listener {
             if (MailParrotUtils.hasBundle(parrot)) {
                 switch (heldItem.getType()) {
                     case MAP:
-                        break;
-                    case COMPASS:
-                        break;
-                    case NAME_TAG:
-                        break;
-                    default:
-                        MailParrotUtils.removeBundleFromParrot(parrot, player);
                         event.setCancelled(true);
+                        return;
+                    case COMPASS:
+                        event.setCancelled(true);
+                        return;
+                    case NAME_TAG:
+                        boolean success = handleNameTag(heldItem, parrot);
+
+                        if (success) {
+                            event.setCancelled(true);
+                        }
+
+                        return;
+                    default:
+                        event.setCancelled(true);
+                        MailParrotUtils.removeBundleFromParrot(parrot, player);
                         return;
                 }
             }
@@ -66,6 +77,29 @@ public class ParrotRightClickListener implements Listener {
 
             new MailParrotUpdater(parrot, itemDisplay).runTaskTimer(plugin, 0, 1);
         }
+    }
+
+    private boolean handleNameTag(@NotNull ItemStack nameTag, Parrot parrot) {
+        ItemMeta nameTagMeta = nameTag.getItemMeta();
+
+        if (!nameTagMeta.hasDisplayName()) {
+            return false;
+        }
+
+        Component playerName = nameTagMeta.displayName();
+        assert playerName != null;
+
+        PlainTextComponentSerializer serializer = PlainTextComponentSerializer.plainText();
+
+        String playerNameString = serializer.serialize(playerName);
+        OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayerIfCached(playerNameString);
+
+        if (offlinePlayer == null) {
+            return false;
+        }
+
+        MailParrotUtils.sendParrot(parrot, offlinePlayer);
+        return true;
     }
 
     private @NotNull ItemDisplay spawnItemDisplay(@NotNull Location spawnLocation) {

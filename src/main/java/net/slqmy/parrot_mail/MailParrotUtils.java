@@ -2,6 +2,7 @@ package net.slqmy.parrot_mail;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Parrot;
 import org.bukkit.entity.Player;
@@ -88,5 +89,13 @@ public class MailParrotUtils {
         playerInventory.setItemInMainHand(null);
         parrotEquipment.setItemInMainHand(bundle);
         parrotEquipment.setDropChance(EquipmentSlot.HAND, 1.0F);
+    }
+
+    public static void sendParrot(Parrot parrot, Location location) {
+
+    }
+
+    public static void sendParrot(@NotNull Parrot parrot, OfflinePlayer target) {
+        parrot.setTarget((Player) target);
     }
 }
