@@ -13,7 +13,10 @@ public class MailParrotUtils {
         Location parrotLocation = parrot.getLocation();
         Location bundleLocation = bundle.getLocation();
 
-        //if (shouldTP) bundle.teleport(parrotLocation);
+        if (shouldTP) {
+            bundle.teleport(parrotLocation);
+            bundle.setRotation(0, 0);
+        }
 
         Vector forward = parrotLocation.getDirection();
         Vector left = forward.clone().rotateAroundY(Math.PI / 2);
@@ -31,10 +34,9 @@ public class MailParrotUtils {
         parrotTranslation.add(new Vector3f((float) forward.getX(), (float) forward.getY(), (float) forward.getZ()).mul(0.3F));
 
         bundle.setInterpolationDelay(0);
-        bundle.setInterpolationDuration(lastLocation.equals(parrotLocation) ? 0 : 1);
+        bundle.setInterpolationDuration(lastLocation.equals(parrotLocation) || shouldTP ? 0 : 1);
 
         transformation.getTranslation().set(parrotTranslation);
-
         bundle.setTransformation(transformation);
 
         return parrotLocation;
