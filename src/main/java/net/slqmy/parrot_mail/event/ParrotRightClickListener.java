@@ -1,9 +1,8 @@
 package net.slqmy.parrot_mail.event;
 
-import io.papermc.paper.math.Rotations;
 import net.slqmy.parrot_mail.MailParrotUtils;
 import net.slqmy.parrot_mail.ParrotMailPlugin;
-import net.slqmy.parrot_mail.runnables.BundlePositionUpdater;
+import net.slqmy.parrot_mail.runnables.MailParrotUpdater;
 import org.bukkit.*;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
@@ -38,70 +37,64 @@ public class ParrotRightClickListener implements Listener {
                 return;
             }
 
-
-            EntityEquipment parrotEquipment = parrot.getEquipment();
-
-            ItemStack possibleBundle = parrotEquipment.getItemInMainHand();
-
-            World world = parrot.getWorld();
-
             PlayerInventory playerInventory = player.getInventory();
             ItemStack heldItem = playerInventory.getItemInMainHand();
 
-            // ItemStack.isEmpty() checks if an item exists or not.
-            if (possibleBundle.getType() == Material.BUNDLE) { // If the parrot has a bundle.
-                parrotEquipment.setItemInMainHand(null);
-
-                Location parrotLocation = parrot.getLocation();
-
-                if (heldItem.isEmpty()) {
-                    playerInventory.setItemInMainHand(possibleBundle); // Gives the bundle directly to the player.
-                } else {
-                    world.dropItem(parrotLocation, possibleBundle); // Drops the parrot's bundle.
+            if (MailParrotUtils.hasBundle(parrot)) {
+                switch (heldItem.getType()) {
+                    case MAP:
+                        break;
+                    case COMPASS:
+                        break;
+                    case NAME_TAG:
+                        break;
+                    default:
+                        MailParrotUtils.removeBundleFromParrot(parrot, player);
+                        event.setCancelled(true);
+                        return;
                 }
-
-                event.setCancelled(true);
-                return;
             }
-
 
             if (heldItem.getType() != Material.BUNDLE) {
                 return;
             }
 
-            playerInventory.setItemInMainHand(null);
-            parrotEquipment.setItemInMainHand(heldItem);
-            parrotEquipment.setDropChance(EquipmentSlot.HAND, 1.0F);
-
+            MailParrotUtils.giveParrotBundle(parrot, player);
             event.setCancelled(true);
 
-            //Spawn item display
-            Location spawnLocation = parrot.getLocation();
-            spawnLocation.setDirection(new Vector());
-            spawnLocation.setYaw(0);
-            spawnLocation.setPitch(0);
+            ItemDisplay itemDisplay = spawnItemDisplay(parrot.getLocation());
 
-            ItemDisplay itemDisplay = (ItemDisplay) world.spawnEntity(spawnLocation, EntityType.ITEM_DISPLAY);
-
-            ItemStack bundle = new ItemStack(Material.BUNDLE);
-
-            BundleMeta meta = (BundleMeta) bundle.getItemMeta();
-            meta.addItem(new ItemStack(Material.DIRT));
-
-            bundle.setItemMeta(meta);
-
-            itemDisplay.setItemStack(bundle);
-
-            itemDisplay.setInterpolationDelay(0);
-            itemDisplay.setInterpolationDuration(1);
-
-            itemDisplay.setBillboard(Display.Billboard.FIXED);
-
-            Transformation transformation = itemDisplay.getTransformation();
-            transformation.getScale().set(0.5D, 0.5D, 0.5D);
-            itemDisplay.setTransformation(transformation);
-
-            new BundlePositionUpdater(parrot, itemDisplay).runTaskTimer(plugin, 0, 1);
+            new MailParrotUpdater(parrot, itemDisplay).runTaskTimer(plugin, 0, 1);
         }
+    }
+
+    private @NotNull ItemDisplay spawnItemDisplay(@NotNull Location spawnLocation) {
+        World world = spawnLocation.getWorld();
+
+        spawnLocation.setDirection(new Vector());
+        spawnLocation.setYaw(0);
+        spawnLocation.setPitch(0);
+
+        ItemDisplay itemDisplay = (ItemDisplay) world.spawnEntity(spawnLocation, EntityType.ITEM_DISPLAY);
+
+        ItemStack bundle = new ItemStack(Material.BUNDLE);
+
+        BundleMeta meta = (BundleMeta) bundle.getItemMeta();
+        meta.addItem(new ItemStack(Material.DIRT));
+
+        bundle.setItemMeta(meta);
+
+        itemDisplay.setItemStack(bundle);
+
+        itemDisplay.setInterpolationDelay(0);
+        itemDisplay.setInterpolationDuration(1);
+
+        itemDisplay.setBillboard(Display.Billboard.FIXED);
+
+        Transformation transformation = itemDisplay.getTransformation();
+        transformation.getScale().set(0.5D, 0.5D, 0.5D);
+        itemDisplay.setTransformation(transformation);
+
+        return itemDisplay;
     }
 }

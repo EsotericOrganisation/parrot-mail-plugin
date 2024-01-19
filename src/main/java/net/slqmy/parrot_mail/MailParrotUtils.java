@@ -1,8 +1,14 @@
 package net.slqmy.parrot_mail;
 
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Parrot;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.EntityEquipment;
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.util.Transformation;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
@@ -46,5 +52,41 @@ public class MailParrotUtils {
         bundle.setTransformation(transformation);
 
         return parrotLocation;
+    }
+
+    public static void updateMailParrot(@NotNull Parrot parrot) {
+        parrot.setRotation(parrot.getYaw(), 0);
+    }
+
+    public static boolean hasBundle(@NotNull Parrot parrot) {
+        return parrot.getEquipment().getItemInMainHand().getType() == Material.BUNDLE;
+    }
+
+    public static void removeBundleFromParrot(@NotNull Parrot parrot, @NotNull Player player) {
+        PlayerInventory playerInventory = player.getInventory();
+        ItemStack heldItem = playerInventory.getItemInMainHand();
+
+        EntityEquipment parrotEquipment = parrot.getEquipment();
+
+        ItemStack bundle = parrotEquipment.getItemInMainHand();
+        parrotEquipment.setItemInMainHand(null);
+
+        Location parrotLocation = parrot.getLocation();
+
+        if (heldItem.isEmpty()) {
+            playerInventory.setItemInMainHand(bundle); // Gives the bundle directly to the player.
+        } else {
+            parrotLocation.getWorld().dropItem(parrotLocation, bundle); // Drops the parrot's bundle.
+        }
+    }
+
+    public static void giveParrotBundle(@NotNull Parrot parrot, @NotNull Player player) {
+        EntityEquipment parrotEquipment = parrot.getEquipment();
+        PlayerInventory playerInventory = player.getInventory();
+        ItemStack bundle = playerInventory.getItemInMainHand();
+
+        playerInventory.setItemInMainHand(null);
+        parrotEquipment.setItemInMainHand(bundle);
+        parrotEquipment.setDropChance(EquipmentSlot.HAND, 1.0F);
     }
 }
