@@ -6,10 +6,12 @@ import org.bukkit.entity.Parrot;
 import org.bukkit.util.Transformation;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
+import org.joml.AxisAngle4d;
+import org.joml.Vector3d;
 import org.joml.Vector3f;
 
 public class MailParrotUtils {
-    public static Location updateBundlePosition(@NotNull Parrot parrot, @NotNull ItemDisplay bundle, Location lastLocation, boolean shouldTP) {
+    public static @NotNull Location updateBundlePosition(@NotNull Parrot parrot, @NotNull ItemDisplay bundle, Location lastLocation, boolean shouldTP) {
         Location parrotLocation = parrot.getLocation();
         Location bundleLocation = bundle.getLocation();
 
@@ -23,6 +25,10 @@ public class MailParrotUtils {
         Vector up = forward.clone().crossProduct(left);
 
         Transformation transformation = bundle.getTransformation();
+
+        double yawRadians = -Math.toRadians(parrot.getYaw());
+
+        transformation.getLeftRotation().set(new AxisAngle4d(yawRadians, new Vector3d(0, 1, 0)));
 
         Vector3f parrotTranslation = new Vector3f(
                 (float) (parrotLocation.getX() - bundleLocation.getX()),
