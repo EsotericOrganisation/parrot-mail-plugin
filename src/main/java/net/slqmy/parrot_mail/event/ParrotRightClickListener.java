@@ -1,134 +1,116 @@
 package net.slqmy.parrot_mail.event;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import net.slqmy.parrot_mail.MailParrotUtils;
 import net.slqmy.parrot_mail.ParrotMailPlugin;
-import net.slqmy.parrot_mail.runnables.MailParrotUpdater;
-import org.bukkit.*;
-import org.bukkit.entity.*;
+import net.slqmy.parrot_mail.parrot.MailParrot;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.entity.Parrot;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
-import org.bukkit.inventory.*;
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.BundleMeta;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.util.Transformation;
-import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
 
-public class ParrotRightClickListener implements Listener {
+import java.util.Objects;
 
+public final class ParrotRightClickListener implements Listener {
     private final ParrotMailPlugin plugin;
 
-    public ParrotRightClickListener(ParrotMailPlugin plugin) {
-        this.plugin = plugin;
+    public ParrotRightClickListener() {
+        this.plugin = ParrotMailPlugin.getInstance();
+    }
+
+    public void register() {
+        plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
     @EventHandler
     public void onParrotRightClick(@NotNull PlayerInteractEntityEvent event) {
         Player player = event.getPlayer();
+        Bukkit.broadcast(Component.text("player interact entity"));
+
+        // Minecraft is dumb and sends packets for both main and off hand interactions
+//        if (event.getRightClicked() instanceof Parrot && event.getHand() == EquipmentSlot.OFF_HAND) {
+//            if (event.getPlayer().getInventory().getItemInOffHand().isEmpty()) {
+//                event.setCancelled(true);
+//            }
+//        }
+
+        if (event.getHand() != EquipmentSlot.HAND) {
+            return;
+        }
 
         if (!player.isSneaking()) {
             return;
         }
 
-        Entity entity = event.getRightClicked();
+        if (!(event.getRightClicked() instanceof Parrot parrot)) {
+            return;
+        }
 
-        if (entity instanceof Parrot parrot) {
-            if (!parrot.isTamed()) {
-                return;
-            }
+        if (!parrot.isTamed()) {
+            return;
+        }
 
-            PlayerInventory playerInventory = player.getInventory();
-            ItemStack heldItem = playerInventory.getItemInMainHand();
+        MailParrot mailParrot = Objects.requireNonNullElseGet(
+            MailParrot.from(parrot), () -> new MailParrot(parrot));
 
-            if (MailParrotUtils.hasBundle(parrot)) {
-                switch (heldItem.getType()) {
-                    case MAP:
-                        event.setCancelled(true);
-                        return;
-                    case COMPASS:
-                        event.setCancelled(true);
-                        return;
-                    case NAME_TAG:
-                        boolean success = handleNameTag(heldItem, parrot);
+        PlayerInventory playerInventory = player.getInventory();
+        ItemStack heldItem = playerInventory.getItemInMainHand();
 
-                        if (success) {
-                            event.setCancelled(true);
-                        }
+        if (mailParrot.hasGuideItem()) {
+            mailParrot.removeGuideItem(player);
+            mailParrot.removeIfInactive();
 
-                        return;
-                    default:
-                        event.setCancelled(true);
-                        MailParrotUtils.removeBundleFromParrot(parrot, player);
-                        return;
-                }
-            }
-
-            if (heldItem.getType() != Material.BUNDLE) {
-                return;
-            }
-
-            MailParrotUtils.giveParrotBundle(parrot, player);
             event.setCancelled(true);
-
-            ItemDisplay itemDisplay = spawnItemDisplay(parrot.getLocation());
-
-            new MailParrotUpdater(parrot, itemDisplay).runTaskTimer(plugin, 0, 1);
+            return;
         }
+
+        if (mailParrot.hasBundle()) {
+            handleUsedItem(player, mailParrot, heldItem);
+            mailParrot.removeIfInactive();
+
+            event.setCancelled(true);
+            return;
+        }
+
+        if (heldItem.getType() == Material.BUNDLE) {
+            BundleMeta bundleMeta = (BundleMeta) heldItem.getItemMeta();
+            boolean hasItems = !bundleMeta.getItems().isEmpty();
+
+            if (hasItems) {
+                mailParrot.giveBundle(player, heldItem);
+
+                event.setCancelled(true);
+                return;
+            }
+        }
+
+        // No interaction with the parrot
+        mailParrot.removeIfInactive();
     }
 
-    private boolean handleNameTag(@NotNull ItemStack nameTag, Parrot parrot) {
-        ItemMeta nameTagMeta = nameTag.getItemMeta();
+    private void handleUsedItem(Player player, MailParrot parrot, ItemStack usedItem) {
+        switch (usedItem.getType()) {
+            case COMPASS -> {
+                parrot.setGuideItem(player, usedItem);
+                parrot.readGuideItemAndFlyToTarget();
+            }
+            case MAP -> {
 
-        if (!nameTagMeta.hasDisplayName()) {
-            return false;
+            }
+            case NAME_TAG -> {
+
+            }
+            default -> {
+                Bukkit.broadcast(Component.text("Bundle has been taken from parrot"));
+                parrot.removeBundle(player);
+            }
         }
-
-        Component playerName = nameTagMeta.displayName();
-        assert playerName != null;
-
-        PlainTextComponentSerializer serializer = PlainTextComponentSerializer.plainText();
-
-        String playerNameString = serializer.serialize(playerName);
-        OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayerIfCached(playerNameString);
-
-        if (offlinePlayer == null) {
-            return false;
-        }
-
-        MailParrotUtils.sendParrot(parrot, offlinePlayer);
-        return true;
-    }
-
-    private @NotNull ItemDisplay spawnItemDisplay(@NotNull Location spawnLocation) {
-        World world = spawnLocation.getWorld();
-
-        spawnLocation.setDirection(new Vector());
-        spawnLocation.setYaw(0);
-        spawnLocation.setPitch(0);
-
-        ItemDisplay itemDisplay = (ItemDisplay) world.spawnEntity(spawnLocation, EntityType.ITEM_DISPLAY);
-
-        ItemStack bundle = new ItemStack(Material.BUNDLE);
-
-        BundleMeta meta = (BundleMeta) bundle.getItemMeta();
-        meta.addItem(new ItemStack(Material.DIRT));
-
-        bundle.setItemMeta(meta);
-
-        itemDisplay.setItemStack(bundle);
-
-        itemDisplay.setInterpolationDelay(0);
-        itemDisplay.setInterpolationDuration(1);
-
-        itemDisplay.setBillboard(Display.Billboard.FIXED);
-
-        Transformation transformation = itemDisplay.getTransformation();
-        transformation.getScale().set(0.5D, 0.5D, 0.5D);
-        itemDisplay.setTransformation(transformation);
-
-        return itemDisplay;
     }
 }
