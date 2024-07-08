@@ -52,5 +52,5 @@ bukkitPluginYaml {
     apiVersion = "1.20.5"
     commands.register("debug")
     commands.register("getyaw")
-    commands.register("leftrightrot")
+    commands.register("displaytest")
 }

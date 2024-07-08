@@ -32,14 +32,6 @@ public final class ParrotRightClickListener implements Listener {
     @EventHandler
     public void onParrotRightClick(@NotNull PlayerInteractEntityEvent event) {
         Player player = event.getPlayer();
-        Bukkit.broadcast(Component.text("player interact entity"));
-
-        // Minecraft is dumb and sends packets for both main and off hand interactions
-//        if (event.getRightClicked() instanceof Parrot && event.getHand() == EquipmentSlot.OFF_HAND) {
-//            if (event.getPlayer().getInventory().getItemInOffHand().isEmpty()) {
-//                event.setCancelled(true);
-//            }
-//        }
 
         if (event.getHand() != EquipmentSlot.HAND) {
             return;

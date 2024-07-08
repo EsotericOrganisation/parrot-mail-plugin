@@ -1,12 +1,9 @@
 package net.slqmy.parrot_mail.parrot;
 
 import lombok.Getter;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.ai.control.LookControl;
 import net.minecraft.world.entity.player.Player;
 import net.slqmy.parrot_mail.ParrotMailPlugin;
@@ -15,7 +12,6 @@ import net.slqmy.parrot_mail.util.ParrotRotation;
 import net.slqmy.parrot_mail.util.Utils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.craftbukkit.entity.CraftDisplay;
 import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Parrot;
 import org.bukkit.util.Transformation;
@@ -25,6 +21,10 @@ import org.joml.Vector3f;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+
+import static net.kyori.adventure.text.Component.text;
+import static net.slqmy.parrot_mail.util.MathUtils.toMinecraftDegrees;
 
 public final class BundlePositioner implements Runnable {
     @Getter
@@ -39,15 +39,18 @@ public final class BundlePositioner implements Runnable {
 
     private float animHeadYaw;
     private float animBodyYaw;
+
     private float angle;
 
     private int lastLookAtCooldown;
+    private int spinning;
 
-    private boolean isMoving;
-    private boolean isRotatingHead;
-    private boolean isRotatingBody;
+    private boolean isMovingO;
+    private boolean isRotatingHeadO;
+    private boolean isRotatingBodyO;
 
     private boolean cancelled;
+    private boolean firstTick;
 
     BundlePositioner(Parrot parrot, ItemDisplay bundle) {
         this.parrot = parrot;
@@ -59,6 +62,9 @@ public final class BundlePositioner implements Runnable {
 
         this.animHeadYaw = parrot.getYaw();
         this.animBodyYaw = parrot.getBodyYaw();
+
+        this.cancelled = false;
+        this.firstTick = true;
 
         this.lastLookAtCooldown = 0;
 
@@ -78,9 +84,9 @@ public final class BundlePositioner implements Runnable {
             return;
         }
 
-        this.isMoving = isMoving();
-        this.isRotatingHead = isRotatingHead();
-        this.isRotatingBody = isRotatingBody();
+        this.isMovingO = isMoving();
+        this.isRotatingHeadO = isRotatingHead();
+        this.isRotatingBodyO = isRotatingBody();
     }
 
     @Override
@@ -89,10 +95,21 @@ public final class BundlePositioner implements Runnable {
             return;
         }
 
+        if (checkSpinningLikeCrazy()) {
+            this.spinning = 3;
+        } else if (spinning > 0) {
+            this.spinning--;
+        }
+
         parrotRotation.tick();
 
-        this.animHeadYaw = calculateAnimHeadYaw();
-        this.animBodyYaw = animBodyYaw();
+        this.animHeadYaw = toMinecraftDegrees(calculateAnimHeadYaw());
+        this.animBodyYaw = toMinecraftDegrees(calculateAnimBodyYaw());
+
+        if (ParrotMailPlugin.getInstance().isDebugging()) {
+            Bukkit.broadcast(text("anim head: " + animHeadYaw));
+            Bukkit.broadcast(text("anim body " + animBodyYaw));
+        }
 
         //Remove pitch from the equation cuz f*ck this sh*t
         nmsParrot.setXRot(0.0F);
@@ -105,8 +122,8 @@ public final class BundlePositioner implements Runnable {
         transformation.getTranslation().set(difference);
 
         //Rotate the bundle transformation
-        float yaw = (float) Math.toRadians(MathUtils.mcYawToAngle(animHeadYaw - angle));
-        AxisAngle4f rotation = new AxisAngle4f(yaw, 0.0F, 1.0F, 0.0F);
+        float yaw = (float) Math.toRadians(MathUtils.toNormalDegrees(animHeadYaw - angle));
+        AxisAngle4f rotation = new AxisAngle4f(yaw, -0.05F, 1.0F, -0.04F);
 
         transformation.getLeftRotation().set(rotation);
 
@@ -116,186 +133,117 @@ public final class BundlePositioner implements Runnable {
         //Apply the transformation
         bundle.setTransformation(transformation);
 
-        bundle.setInterpolationDelay(0);
-        bundle.setInterpolationDuration((isRotatingHead || isRotatingBody) ? 1 : 0);
-        bundle.setTeleportDuration(isRotatingBody ? 1 : 0);
+        bundle.setInterpolationDelay(getInterpolationDelay());
+        bundle.setInterpolationDuration(getInterpolationDuration());
+        bundle.setTeleportDuration(getTeleportDuration());
 
         //Broadcast packets
-        broadcastUpdatePackets();
+        broadcastBundleDataUpdatePackets();
+
+        if (firstTick) {
+            this.firstTick = false;
+        }
     }
 
     private Vector3f getBundlePositionDelta() {
         Location parrotEyeLocation = parrot.getEyeLocation();
 
         Vector bodyDirection = MathUtils.getFacingDirection(animBodyYaw, 0.0F);
-        Location atNeck = parrotEyeLocation.clone().add(bodyDirection.normalize().multiply(0.161));
+        Location atNeck = parrotEyeLocation.clone().add(bodyDirection.normalize().multiply(0.161D));
 
         Vector headDirection = MathUtils.getFacingDirection(animHeadYaw, 0.0F);
-        Location atBeak = atNeck.clone().add(headDirection.normalize().multiply(0.158));
+        Location atBeak = atNeck.clone().add(headDirection.normalize().multiply(0.151D));
 
-        Vector rightFromHead = MathUtils.getFacingDirection(animHeadYaw + 90.0F, 0.0F);
-        Location atRight = atBeak.clone().add(rightFromHead.normalize().multiply(0.035));
+        Vector right = MathUtils.getFacingDirection(90.0F, 0.0F);
 
-        double dx = atRight.getX() - parrotEyeLocation.getX();
-        double dz = atRight.getZ() - parrotEyeLocation.getZ();
+        double dx = atBeak.getX() - parrotEyeLocation.getX();
+        double dz = atBeak.getZ() - parrotEyeLocation.getZ();
 
-        float yOffset = parrot.isSitting() ? -0.125F : 0.05F;
+        float yOffset = parrot.isSitting() ? -0.185F : -0.055F;
         float length = (float) Math.sqrt(dx * dx + dz * dz);
 
-        this.angle = MathUtils.toMinecraftDegrees((float) Math.atan2(dz, dx) * MathUtils.RADIANS_TO_DEGREES);
-        return new Vector3f(1.0F, 0.0F,0.0F).mul(length).add(0.0F, yOffset, 0.0F);
+        this.angle = toMinecraftDegrees((float) (Math.atan2(dz, dx) * MathUtils.RADIANS_TO_DEGREES - 90.0F));
+
+        return new Vector3f(0.0F, 0.0F,1.0F)
+            .mul(length)
+            .add(right.toVector3f().normalize().mul(0.025F))
+            .add(0.0F, yOffset, 0.0F);
     }
 
     private float calculateAnimHeadYaw() {
-        float angle = isRotatingHead
-            ? MathUtils.lerp(nmsParrot.yHeadRotO, nmsParrot.yHeadRot, 0.75F)
-            : nmsParrot.yHeadRot;
-
-        if (Math.abs(angle - animHeadYaw) > nmsParrot.getHeadRotSpeed()) {
-            angle = animHeadYaw + Math.signum(angle - animHeadYaw) * 10;
+        if (isSpinningLikeCrazy()) {
+            return MathUtils.lerpRotation(animHeadYaw, nmsParrot.yHeadRotO, (1.0F / 3.0F));
         }
 
-        return angle;
+        if (isRotationStable()) {
+            return nmsParrot.yHeadRot;
+        }
+
+        if (!isRotatingHeadO) {
+            return animHeadYaw;
+        }
+
+        return nmsParrot.yHeadRotO;
     }
 
-    private float animBodyYaw() {
-//        BodyRotationControl bodyRotationControl = Utils.reflectField(Mob.class, "bodyRotationControl", nmsParrot);
-//
-//        float lastStableYHeadRot = Utils.reflectField(BodyRotationControl.class, "lastStableYHeadRot", bodyRotationControl);
-//        int headStableTime = Utils.reflectField(BodyRotationControl.class, "headStableTime", bodyRotationControl);
-//
-//        if (Math.abs(animHeadYaw - lastStableYHeadRot) > 15.0F) {
-//            return Mth.rotateIfNecessary(nmsParrot.yBodyRot, nmsParrot.yHeadRot, (float) nmsParrot.getMaxHeadYRot());
-//        } else {
-//            if (++headStableTime > 10) {
-//                float interpolationFactor = Mth.clamp((headStableTime - 10) / 10.0F, 0.0F, 1.0F);
-//                float maxRot = (float) nmsParrot.getMaxHeadYRot() * (1.0F - interpolationFactor);
-//
-//                return Mth.rotateIfNecessary(nmsParrot.yBodyRot, nmsParrot.yHeadRot, maxRot);
-//            }
-//        }
+    private float calculateAnimBodyYaw() {
+        if (isSpinningLikeCrazy()) {
+            return MathUtils.lerpRotation(animBodyYaw, nmsParrot.yBodyRotO, (1.0F / 3.0F));
+        }
 
-//        if (isMoving() && isRotating()) {
-//            int totalLerpSteps = (int) Math.ceil(Math.abs(nmsParrot.yBodyRot - nmsParrot.yBodyRotO) / 10.0F);
-//            int remainingLerpSteps = (int) Math.ceil(Math.abs(nmsParrot.yBodyRot - animBodyYaw) / 10.0F);
-//
-//            // begin interpolation immediately
-//            if (remainingLerpSteps == totalLerpSteps) {
-//                remainingLerpSteps -= 1;
-//            }
-//
-//            return
-//                (nmsParrot.yBodyRotO) +
-//                (nmsParrot.yBodyRot - nmsParrot.yBodyRotO) *
-//                (1.0F - (remainingLerpSteps / (float) totalLerpSteps));
-//        } else {
-//            return nmsParrot.yBodyRot;
-//        }
-
-        if (!isRotatingBody) {
+        if (isRotationStable()) {
+            parrotRotation.setVisualBodyYaw(nmsParrot.yBodyRot);
             return nmsParrot.yBodyRot;
         }
 
-        if (!isMoving) {
-            if (ParrotMailPlugin.getInstance().isDebugging()) {
-                Bukkit.broadcast(Component.text("Not moving, and rotating"));
-            }
-
-            float factor = 1.2F;
-            return MathUtils.lerp(nmsParrot.yBodyRotO, nmsParrot.yBodyRot, factor);
+        if (!isRotatingBody()) {
+            return animBodyYaw;
         }
 
-        if (ParrotMailPlugin.getInstance().isDebugging()) {
-            Bukkit.broadcast(MiniMessage.miniMessage().deserialize("<green>Using parrot rotation manager"));
+        if (!isMovingO) {
+            float rotatingDirection = Math.signum(MathUtils.toMinecraftDegrees(nmsParrot.yBodyRot - nmsParrot.yBodyRotO));
+            float prediction = rotatingDirection == 0.0F
+                ? nmsParrot.yBodyRot
+                : animBodyYaw + (rotatingDirection * 7.5F);
+
+            return clampBodyRotToHead(toMinecraftDegrees(prediction));
         }
 
         return parrotRotation.getVisualBodyYaw();
     }
 
-    private void broadcastUpdatePackets() {
-        Display nmsBundle = ((CraftDisplay) bundle).getHandle();
+    private void broadcastBundleDataUpdatePackets() {
         List<SynchedEntityData.DataValue<?>> entityData = nmsBundle.getEntityData().packAll();
-
         assert entityData != null;
+
         for (Player player : nmsBundle.level().players()) {
-            ((ServerPlayer) player).connection.send(new ClientboundSetEntityDataPacket(
+            ServerPlayer serverPlayer = (ServerPlayer) player;
+            serverPlayer.connection.send(new ClientboundSetEntityDataPacket(
                 nmsBundle.getId(), entityData));
         }
     }
 
-//    private int getInterpolationDelay() {
-//        return (int) Math.ceil((Math.abs(nmsParrot.yHeadRot - nmsParrot.yHeadRotO) / 10.0F));
-//    }
+    /**
+     * Clamps the body rotation to the head rotation. The body can't fall behind by more than 75 degrees, and can't be ahead.
+     * @param bodyYaw The body yaw.
+     * @return The clamped body yaw.
+     */
+    private float clampBodyRotToHead(float bodyYaw) {
+        float clamped = bodyYaw;
+        float bodyRotatingDirection = Math.signum(toMinecraftDegrees(nmsParrot.yBodyRot - nmsParrot.yBodyRotO));
 
-//    private float calculateAnimBodyYaw() {
-//        boolean debug = ParrotMailPlugin.getInstance().isDebugging();
-//        boolean bodyYawChanged = parrotRotation.tickMovement();
-//
-//        if (isLookingAtEntity()) {
-//            if (isMoving()) {
-//                //pretty good but sometimes slightly off for extended periods of time
-//                //sometimes flashes
-//                if (debug && lastLookType != 1) {
-//                    this.lastLookType = 1;
-//                    Bukkit.broadcast(Component.text("Moving and looking at target"));
-//                }
-//
-//                //return nmsParrot.getYRot();
-//                return bodyYawChanged
-//                    ? parrotRotation.getVisualBodyYaw()
-//                    : Mth.rotateIfNecessary(nmsParrot.yBodyRot, nmsParrot.yHeadRot, nmsParrot.getMaxHeadYRot());
-//            } else {
-//                //slightly off when rotating body, bundle is a slight bit behind
-//                if (debug && lastLookType != 2) {
-//                    this.lastLookType = 2;
-//                    Bukkit.broadcast(Component.text("Not moving, and looking at target"));
-//                }
-//
-//                //testing clienttick
-//                return clientTick();
-//            }
-//        } else {
-//            if (isMoving()) {
-//                //flawless
-//                if (debug && lastLookType != 3) {
-//                    this.lastLookType = 3;
-//                    Bukkit.broadcast(Component.text("Moving, not looking at target"));
-//                }
-//
-//                return bodyYawChanged
-//                    ? parrotRotation.getVisualBodyYaw()
-//                    : Mth.rotateIfNecessary(nmsParrot.yBodyRot, nmsParrot.yHeadRot, nmsParrot.getMaxHeadYRot());
-//            } else {
-//                //resolved, this works. nice
-//                if (debug && lastLookType != 4) {
-//                    this.lastLookType = 4;
-//                    Bukkit.broadcast(Component.text("Not moving, not looking at target"));
-//                }
-//
-//                return animHeadYaw;
-//            }
-//        }
-//    }
-//
-//    private float clientTick() {
-//        BodyRotationControl bodyRotationControl = Utils.reflectField(Mob.class, "bodyRotationControl", nmsParrot);
-//
-//        float lastStableYHeadRot = Utils.reflectField(BodyRotationControl.class, "lastStableYHeadRot", bodyRotationControl);
-//        int headStableTime = Utils.reflectField(BodyRotationControl.class, "headStableTime", bodyRotationControl);
-//
-//        if (Math.abs(animHeadYaw - lastStableYHeadRot) > 15.0F) {
-//            return Mth.rotateIfNecessary(animBodyYaw, animHeadYaw, (float) nmsParrot.getMaxHeadYRot());
-//        } else {
-//            if (++headStableTime > 10) {
-//                float interpolationFactor = Mth.clamp((headStableTime - 10) / 10.0F, 0.0F, 1.0F);
-//                float maxRot = (float) nmsParrot.getMaxHeadYRot() * (1.0F - interpolationFactor);
-//
-//                return Mth.rotateIfNecessary(animBodyYaw, animHeadYaw, maxRot);
-//            }
-//        }
-//
-//        return animBodyYaw;
-//    }
+        float difference = toMinecraftDegrees(animHeadYaw - bodyYaw);
+
+        if (Math.abs(difference) > 75.0F) {
+            clamped = animHeadYaw - (Math.signum(difference) * 75.0F);
+        }
+
+        if (bodyRotatingDirection == 0.0F) {
+            return clamped;
+        }
+
+        return MathUtils.limitRot(clamped, animHeadYaw, bodyRotatingDirection);
+    }
 
     private boolean isLookingAtEntity() {
         int lastLookCooldown = lastLookAtCooldown;
@@ -305,6 +253,11 @@ public final class BundlePositioner implements Runnable {
         return currentLookCooldown != 0 || lastLookCooldown != 0;
     }
 
+    private boolean hasReachedWantedRotation() {
+        Optional<Float> yRotD = Utils.invokeReflectedMethod(LookControl.class, "getYRotD", nmsParrot.getLookControl());
+        return yRotD.isEmpty();
+    }
+
     private boolean isMoving() {
         double d = nmsParrot.getX() - nmsParrot.xo;
         double e = nmsParrot.getZ() - nmsParrot.zo;
@@ -312,16 +265,62 @@ public final class BundlePositioner implements Runnable {
     }
 
     private boolean isRotatingHead() {
-        boolean isRotatingHead = nmsParrot.yHeadRot != nmsParrot.yHeadRotO;
-        boolean isAnimHeadRotCatchingUp = animHeadYaw != nmsParrot.yHeadRot;
+        boolean isRotatingHead = toMinecraftDegrees(nmsParrot.yHeadRot) != toMinecraftDegrees(nmsParrot.yHeadRotO);
+        boolean isAnimHeadRotCatchingUp = toMinecraftDegrees(animHeadYaw) != toMinecraftDegrees(nmsParrot.yHeadRot);
 
         return isRotatingHead || isAnimHeadRotCatchingUp;
     }
 
     private boolean isRotatingBody() {
-        boolean isRotatingBody = nmsParrot.yBodyRot != nmsParrot.yBodyRotO;
-        boolean isAnimBodyRotCatchingUp = animBodyYaw != nmsParrot.yBodyRot;
+        boolean isRotatingBody = toMinecraftDegrees(nmsParrot.yBodyRot) != toMinecraftDegrees(nmsParrot.yBodyRotO);
+        boolean isAnimBodyRotCatchingUp = toMinecraftDegrees(animBodyYaw) != toMinecraftDegrees(nmsParrot.yBodyRot);
 
         return isRotatingBody || isAnimBodyRotCatchingUp;
+    }
+
+    private boolean checkSpinningLikeCrazy() {
+        return
+            isMoving() &&
+            isRotatingHead() &&
+            isRotatingBody() &&
+            Math.abs(nmsParrot.yBodyRot - nmsParrot.yHeadRot) > 74.75F &&
+            Math.abs(nmsParrot.yBodyRot - nmsParrot.yHeadRot) < 75.25F;
+    }
+
+    private boolean isSpinningLikeCrazy() {
+        return spinning > 0;
+    }
+
+    private boolean isRotationStable() {
+        return
+            !isSpinningLikeCrazy() &&
+            !isRotatingHead() &&
+            !isRotatingBody() &&
+            !isRotatingHeadO &&
+            !isRotatingBodyO;
+    }
+
+    private int getInterpolationDelay() {
+        if (firstTick) {
+            return 0;
+        }
+
+        return (!isRotatingBodyO && isRotatingBody()) ? 1 : 0;
+    }
+
+    private int getInterpolationDuration() {
+        if (firstTick || isSpinningLikeCrazy()) {
+            return 0;
+        }
+
+        return isRotatingHead() ? 1 : 0;
+    }
+
+    private int getTeleportDuration() {
+        if (firstTick || isSpinningLikeCrazy()) {
+            return 0;
+        }
+
+        return isRotatingBody() ? 1 : 0;
     }
 }

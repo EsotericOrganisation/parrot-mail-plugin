@@ -4,7 +4,7 @@ import net.minecraft.util.Mth;
 import org.bukkit.util.Vector;
 
 public final class MathUtils {
-    public static final float RADIANS_TO_DEGREES = 180.0F / (float) Math.PI;
+    public static final double RADIANS_TO_DEGREES = 180.0D / (float) Math.PI;
 
     public static Vector getFacingDirection(float yaw, float pitch) {
         Vector vector = new Vector();
@@ -17,8 +17,8 @@ public final class MathUtils {
         return vector;
     }
 
-    public static float mcYawToAngle(float yaw) {
-        float angle = 180 - yaw;
+    public static float toNormalDegrees(float minecraftDegrees) {
+        float angle = 180 - minecraftDegrees;
         if (angle < 0) {
             angle += 360;
         }
@@ -26,12 +26,32 @@ public final class MathUtils {
         return angle;
     }
 
-    public static float lerp(float start, float end, float factor) {
-        return start + (end - start) * factor;
+    public static float lerpRotation(float start, float end, float factor) {
+        start = toMinecraftDegrees(start);
+        end = toMinecraftDegrees(end);
+
+        return start + smallestAngleDifference(start, end) * factor;
     }
 
     public static float toMinecraftDegrees(float degrees) {
         return Mth.wrapDegrees(degrees);
+    }
+
+    public static float smallestAngleDifference(float start, float end) {
+        float normalDiff = Math.abs(end - start);
+        float altDiff = 360 - Math.abs(start) - Math.abs(end);
+
+        return Math.min(normalDiff, altDiff) * Math.signum(toMinecraftDegrees(end - start));
+    }
+
+    public static float limitRot(float value, float limit, float rotationDirection) {
+        if (rotationDirection == 0) {
+            return Float.NaN;
+        } else if (rotationDirection > 0) {
+            return Math.max(value + 180.0F, limit + 180.0F) - 180.0F;
+        } else {
+            return Math.min(value + 180.0F, limit + 180.0F) - 180.0F;
+        }
     }
 
     public static float clampHeadYawToBody(float headYaw, float bodyYaw) {

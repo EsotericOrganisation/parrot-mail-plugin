@@ -4,13 +4,13 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import lombok.Getter;
 import lombok.Setter;
+import net.slqmy.parrot_mail.debug.DisplayTestCommand;
 import net.slqmy.parrot_mail.debug.GetYawInfoCommand;
-import net.slqmy.parrot_mail.debug.LeftRightRotationTestCommand;
 import net.slqmy.parrot_mail.debug.ToggleDebugCommand;
-import net.slqmy.parrot_mail.event.TickEndListener;
 import net.slqmy.parrot_mail.event.ParrotLoadOrUnloadListener;
 import net.slqmy.parrot_mail.event.ParrotRemoveListener;
 import net.slqmy.parrot_mail.event.ParrotRightClickListener;
+import net.slqmy.parrot_mail.event.TickEndListener;
 import net.slqmy.parrot_mail.json.JourneyDataSerializer;
 import net.slqmy.parrot_mail.json.UUIDSerializer;
 import net.slqmy.parrot_mail.parrot.MailParrot;
@@ -67,7 +67,7 @@ public final class ParrotMailPlugin extends JavaPlugin implements Listener {
 
         new ToggleDebugCommand().register();
         new GetYawInfoCommand().register();
-        new LeftRightRotationTestCommand().register();
+        new DisplayTestCommand().register();
 
         getServer().getPluginManager().registerEvents(this, this);
         super.onEnable();

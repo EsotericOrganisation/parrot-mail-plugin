@@ -36,7 +36,7 @@ public final class GetYawInfoCommand implements CommandExecutor, TabCompleter {
         net.minecraft.world.entity.LivingEntity nmsEntity = ((CraftLivingEntity) entity).getHandle();
 
         player.sendMessage(MiniMessage.miniMessage().deserialize(
-            "<light_purple>Old: <aqua>" + nmsEntity.yBodyRotO + ", <light_purple>New: <aqua>" + nmsEntity.yBodyRot
+            "<light_purple>Old: <aqua>" + nmsEntity.yBodyRotO + ", <light_purple>New: <aqua>" + nmsEntity.yBodyRot + ", <light_purple>Head: <aqua>" + nmsEntity.yHeadRot + ", <light_purple>Old Head: <aqua>" + nmsEntity.yHeadRotO
         ));
 
         return true;
