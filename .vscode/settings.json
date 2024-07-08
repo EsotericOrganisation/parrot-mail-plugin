@@ -1,4 +1,7 @@
 {
 	"java.compile.nullAnalysis.mode": "automatic",
-	"cSpell.words": ["Bukkit"]
+	"cSpell.words": [
+		"Bukkit"
+	],
+	"java.configuration.updateBuildConfiguration": "automatic"
 }
